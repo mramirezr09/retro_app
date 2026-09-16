@@ -1,0 +1,11 @@
+.env
+storage/uploads/*
+storage/exports/*
+storage/opencode/*
+database/*.sqlite
+database/*.sqlite-shm
+database/*.sqlite-wal
+!storage/uploads/.gitkeep
+!storage/exports/.gitkeep
+!storage/opencode/.gitkeep
+.vscode/
