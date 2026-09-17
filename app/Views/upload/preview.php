@@ -48,7 +48,41 @@
     </section>
 
     <section class="card">
-        <h2>3. Muestra de datos</h2>
+        <h2>3. Columna con imagenes (opcional)</h2>
+        <p class="muted">Columna que contiene enlaces directos a imagenes, separados por <code>|</code>. Se enviaran a la IA como adjuntos.</p>
+        <div class="chip-grid">
+            <label class="chip chip-radio">
+                <input type="radio" name="imagenes_columna" value="" checked>
+                <span>Ninguna</span>
+            </label>
+            <?php foreach ($headers as $header): ?>
+                <label class="chip chip-radio">
+                    <input type="radio" name="imagenes_columna" value="<?= e($header) ?>">
+                    <span><?= e($header) ?></span>
+                </label>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>4. Columna con documentos (opcional)</h2>
+        <p class="muted">Columna que contiene enlaces directos a documentos (PDF, etc.), separados por <code>|</code>.</p>
+        <div class="chip-grid">
+            <label class="chip chip-radio">
+                <input type="radio" name="documentos_columna" value="" checked>
+                <span>Ninguna</span>
+            </label>
+            <?php foreach ($headers as $header): ?>
+                <label class="chip chip-radio">
+                    <input type="radio" name="documentos_columna" value="<?= e($header) ?>">
+                    <span><?= e($header) ?></span>
+                </label>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>5. Muestra de datos</h2>
         <div class="table-scroll">
             <table class="table">
                 <thead>

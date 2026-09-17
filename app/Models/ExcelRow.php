@@ -40,22 +40,32 @@ class ExcelRow extends Model
         ]);
     }
 
-    public function markSent(int $id, string $feedback, ?int $tokens): void
+    public function markSent(int $id, string $feedback, ?int $tokens, string $service = '', string $model = '', ?int $intentos = null, bool $fallback = false): void
     {
-        $this->update($id, [
+        $data = [
             'retroalimentacion' => $feedback,
             'estado'            => 'enviado',
             'tokens'            => $tokens,
             'error'             => null,
             'procesado_en'      => date('Y-m-d H:i:s'),
-        ]);
+        ];
+        if ($service !== '') {
+            $data['servicio'] = $service;
+        }
+        if ($model !== '') {
+            $data['modelo'] = $model;
+        }
+        $data['intentos'] = $intentos;
+        $data['usado_fallback'] = $fallback ? 1 : 0;
+        $this->update($id, $data);
     }
 
-    public function markError(int $id, string $error): void
+    public function markError(int $id, string $error, ?int $intentos = null): void
     {
         $this->update($id, [
             'estado'       => 'error',
             'error'        => $error,
+            'intentos'     => $intentos,
             'procesado_en' => date('Y-m-d H:i:s'),
         ]);
     }

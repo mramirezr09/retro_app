@@ -4,6 +4,13 @@
 
 $router->get('/', 'DashboardController@index');
 
+$router->get('/scripts', 'ScriptController@index');
+$router->get('/scripts/create', 'ScriptController@create');
+$router->post('/scripts', 'ScriptController@store');
+$router->get('/scripts/{id}/edit', 'ScriptController@edit');
+$router->post('/scripts/{id}', 'ScriptController@update');
+$router->post('/scripts/{id}/delete', 'ScriptController@destroy');
+
 $router->get('/prompts', 'PromptController@index');
 $router->get('/prompts/create', 'PromptController@create');
 $router->post('/prompts', 'PromptController@store');
@@ -25,4 +32,5 @@ $router->post('/api/records/reset', 'RecordController@reset');
 
 $router->get('/settings', 'SettingsController@index');
 $router->post('/settings', 'SettingsController@store');
+$router->post('/api/settings/test', 'SettingsController@test');
 

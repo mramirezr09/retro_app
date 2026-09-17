@@ -62,7 +62,29 @@
         var row = document.getElementById('row-' + id);
         if (!row) { return; }
         var cell = row.querySelector('.cell-feedback');
-        cell.innerHTML = '<span class="error-text">' + escapeHtml(error) + '</span>';
+        cell.innerHTML = '<span class="error-text">' + escapeHtml(error).replace(/\n/g, '<br>') + '</span>';
+    }
+
+    function updateProviderCell(id, result) {
+        var row = document.getElementById('row-' + id);
+        if (!row) { return; }
+        var cell = row.querySelector('.cell-provider');
+        if (!cell) { return; }
+        var html = '<div class="provider-line">';
+        if (result.servicio) {
+            html += '<span class="muted small">' + escapeHtml(result.servicio) + '</span>';
+        }
+        if (result.modelo) {
+            html += '<span class="muted small">' + escapeHtml(result.modelo) + '</span>';
+        }
+        if (result.fallback) {
+            html += '<span class="attach-tag badge-fallback">fallback</span>';
+        }
+        if (result.intentos && result.intentos > 1) {
+            html += '<span class="muted small">' + result.intentos + ' intentos</span>';
+        }
+        html += '</div>';
+        cell.innerHTML = html;
     }
 
     function escapeHtml(text) {
@@ -126,8 +148,11 @@
             modelo: modelInput.value.trim()
         };
 
+        var delaySeconds = parseInt(panel.dataset.delay, 10);
+        if (isNaN(delaySeconds) || delaySeconds < 0) { delaySeconds = 0; }
+
         var chain = Promise.resolve();
-        ids.forEach(function (id) {
+        ids.forEach(function (id, index) {
             chain = chain.then(function () {
                 payloadBase.registros = [id];
                 return post(endpoint, payloadBase).then(function (data) {
@@ -136,6 +161,7 @@
                         updateStatusCell(id, 'error');
                     } else {
                         (data.results || []).forEach(function (result) {
+                            updateProviderCell(id, result);
                             if (result.ok) {
                                 updateFeedbackCell(id, result.feedback);
                                 updateStatusCell(id, 'enviado', result.tokens);
@@ -153,6 +179,24 @@
                     setProgress(done, total);
                 });
             });
+
+            if (index < ids.length - 1 && delaySeconds > 0) {
+                chain = chain.then(function () {
+                    return new Promise(function (resolve) {
+                        var remaining = delaySeconds;
+                        progressText.textContent = 'Esperando ' + remaining + 's antes del siguiente...';
+                        var timer = setInterval(function () {
+                            remaining -= 1;
+                            if (remaining <= 0) {
+                                clearInterval(timer);
+                                resolve();
+                            } else {
+                                progressText.textContent = 'Esperando ' + remaining + 's antes del siguiente...';
+                            }
+                        }, 1000);
+                    });
+                });
+            }
         });
 
         chain.then(function () {

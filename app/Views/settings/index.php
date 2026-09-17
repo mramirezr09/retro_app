@@ -1,4 +1,4 @@
-<?php /** @var array $services */ ?>
+<?php /** @var array $services */ /** @var array $processing */ ?>
 <section class="page-head">
     <div>
         <h1>Ajustes</h1>
@@ -6,8 +6,37 @@
     </div>
 </section>
 
-<form method="post" action="<?= e(url('/settings')) ?>" class="form">
+<form method="post" action="<?= e(url('/settings')) ?>" class="form"
+      id="settings-form"
+      data-test-endpoint="<?= e(url('/api/settings/test')) ?>"
+      data-csrf="<?= e($csrf) ?>">
     <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
+
+    <section class="card">
+        <h2>Procesamiento con IA</h2>
+        <p class="muted">Si una respuesta no es valida (error o menos palabras del minimo), se reintenta y luego se usa el otro servicio como respaldo.</p>
+        <div class="form-row">
+            <label>
+                <span>Espera entre registros (segundos)</span>
+                <input type="number" name="ai_delay_segundos" min="0" step="1" value="<?= (int) $processing['delay'] ?>">
+            </label>
+            <label>
+                <span>Espera entre reintentos (segundos)</span>
+                <input type="number" name="ai_retry_segundos" min="0" step="1" value="<?= (int) $processing['retry'] ?>">
+            </label>
+        </div>
+        <div class="form-row">
+            <label>
+                <span>Intentos por servicio</span>
+                <input type="number" name="ai_intentos" min="1" step="1" value="<?= (int) $processing['intentos'] ?>">
+                <small class="muted">Con 2 intentos por servicio se hacen 4 intentos totales (2 principal + 2 alterno).</small>
+            </label>
+            <label>
+                <span>Minimo de palabras para considerar valida la retroalimentacion</span>
+                <input type="number" name="ai_min_palabras" min="0" step="1" value="<?= (int) $processing['min_palabras'] ?>">
+            </label>
+        </div>
+    </section>
 
     <?php foreach ($services as $key => $service): ?>
         <?php $data = $service['data']; ?>
@@ -43,6 +72,18 @@
                     <input type="checkbox" name="<?= e($key) ?>_clear_key" value="1">
                     <span>Eliminar la API key guardada</span>
                 </label>
+            </div>
+
+            <div class="test-box" data-service="<?= e($key) ?>">
+                <label>
+                    <span>Probar conexion y modelo</span>
+                    <input type="text" class="test-message" value="Responde unicamente con la palabra OK." placeholder="Mensaje de prueba">
+                </label>
+                <div class="form-actions">
+                    <button type="button" class="btn test-model" data-service="<?= e($key) ?>">Probar modelo</button>
+                    <span class="test-result muted"></span>
+                </div>
+                <small class="muted">Usa el modelo escrito arriba y la API key guardada. Si cambio la API key, guarde primero los ajustes.</small>
             </div>
         </section>
     <?php endforeach; ?>

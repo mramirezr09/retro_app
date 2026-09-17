@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Env;
 use App\Models\Setting;
 use App\Services\AI\AiManager;
+use App\Services\AI\ProcessingOptions;
 
 class SettingsController extends Controller
 {
@@ -26,8 +27,9 @@ class SettingsController extends Controller
         }
 
         $this->render('settings/index', [
-            'title'    => 'Ajustes',
-            'services' => $services,
+            'title'      => 'Ajustes',
+            'services'   => $services,
+            'processing' => ProcessingOptions::load(),
         ]);
     }
 
@@ -67,6 +69,13 @@ class SettingsController extends Controller
             $model->saveService($service, $data);
         }
 
+        ProcessingOptions::save([
+            'delay'        => $this->request->input('ai_delay_segundos'),
+            'retry'        => $this->request->input('ai_retry_segundos'),
+            'intentos'     => $this->request->input('ai_intentos'),
+            'min_palabras' => $this->request->input('ai_min_palabras'),
+        ]);
+
         try {
             Env::save();
         } catch (\Throwable $e) {
@@ -76,6 +85,63 @@ class SettingsController extends Controller
 
         $this->flash('success', 'Ajustes guardados correctamente.');
         $this->redirect(url('/settings'));
+    }
+
+    public function test(): void
+    {
+        $this->requireCsrf();
+
+        @set_time_limit(0);
+        @ini_set('max_execution_time', '0');
+        ignore_user_abort(true);
+
+        $service = (string) $this->request->string('servicio');
+        $model = (string) $this->request->string('modelo');
+        $message = $this->request->input('mensaje', '');
+        $message = is_string($message) ? trim($message) : '';
+        if ($message === '') {
+            $message = 'Responde unicamente con la palabra OK.';
+        }
+
+        if (!array_key_exists($service, AiManager::SERVICES)) {
+            $this->json(['ok' => false, 'error' => 'Servicio de IA no valido.'], 422);
+        }
+
+        $ai = new AiManager();
+        $config = $ai->configFor($service);
+        if ($model !== '') {
+            $config['modelo'] = $model;
+        }
+
+        if ($service === 'openrouter') {
+            if ((string) $config['modelo'] === '') {
+                $this->json(['ok' => false, 'error' => 'Configure o indique un modelo para OpenRouter.'], 422);
+            }
+            if ((string) $config['api_key'] === '') {
+                $this->json(['ok' => false, 'error' => 'Configure la API key de OpenRouter en Ajustes.'], 422);
+            }
+        }
+
+        $systemPrompt = 'Eres un asistente de prueba de integracion. Responde de forma breve y clara.';
+
+        $start = microtime(true);
+        try {
+            $response = $ai->service($service)->generate($systemPrompt, $message, $config, []);
+        } catch (\Throwable $e) {
+            $this->json(['ok' => false, 'error' => 'Excepcion: ' . $e->getMessage()]);
+        }
+
+        $elapsed = round(microtime(true) - $start, 2);
+
+        $this->json([
+            'ok'       => (bool) $response['ok'],
+            'text'     => (string) ($response['text'] ?? ''),
+            'error'    => $response['error'] ?? null,
+            'tokens'   => $response['tokens'] ?? null,
+            'servicio' => $service,
+            'modelo'   => (string) $config['modelo'],
+            'segundos' => $elapsed,
+        ]);
     }
 
     private function mask(string $key): string

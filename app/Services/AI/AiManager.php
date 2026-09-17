@@ -36,9 +36,9 @@ class AiManager
         };
     }
 
-    public function generate(string $service, string $systemPrompt, string $userMessage): array
+    public function generate(string $service, string $systemPrompt, string $userMessage, array $attachments = []): array
     {
         $config = $this->configFor($service);
-        return $this->service($service)->generate($systemPrompt, $userMessage, $config);
+        return $this->service($service)->generate($systemPrompt, $userMessage, $config, $attachments);
     }
 }

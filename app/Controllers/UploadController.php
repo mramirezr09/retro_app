@@ -77,6 +77,8 @@ class UploadController extends Controller
         $nombreOriginal = (string) $this->request->string('nombre_original', 'archivo');
         $selected = $this->request->arrayInput('columnas');
         $respuestaColumna = (string) $this->request->string('respuesta_columna');
+        $imagenesColumna = (string) $this->request->string('imagenes_columna');
+        $documentosColumna = (string) $this->request->string('documentos_columna');
 
         if ($stored === '' || !preg_match('/^[A-Za-z0-9._-]+$/', $stored)) {
             $this->flash('error', 'Archivo temporal no valido, vuelva a subirlo.');
@@ -103,15 +105,33 @@ class UploadController extends Controller
             $this->redirect(url('/upload'));
         }
 
+        if ($imagenesColumna !== '' && !in_array($imagenesColumna, $headers, true)) {
+            $this->flash('error', 'La columna de imagenes seleccionada no existe.');
+            $this->redirect(url('/upload'));
+        }
+
+        if ($documentosColumna !== '' && !in_array($documentosColumna, $headers, true)) {
+            $this->flash('error', 'La columna de documentos seleccionada no existe.');
+            $this->redirect(url('/upload'));
+        }
+
+        foreach ([$respuestaColumna, $imagenesColumna, $documentosColumna] as $required) {
+            if ($required !== '' && !in_array($required, $selected, true)) {
+                $selected[] = $required;
+            }
+        }
+
         $db = Database::connection();
         $db->beginTransaction();
         try {
             $fileId = (new \App\Models\ExcelFile())->create([
-                'nombre_original'   => $nombreOriginal,
-                'ruta'              => 'uploads/' . $stored,
-                'columnas_json'     => json_encode($selected, JSON_UNESCAPED_UNICODE),
-                'respuesta_columna' => $respuestaColumna,
-                'total_registros'   => count($parsed['rows']),
+                'nombre_original'    => $nombreOriginal,
+                'ruta'               => 'uploads/' . $stored,
+                'columnas_json'      => json_encode($selected, JSON_UNESCAPED_UNICODE),
+                'respuesta_columna'  => $respuestaColumna,
+                'imagenes_columna'   => $imagenesColumna,
+                'documentos_columna' => $documentosColumna,
+                'total_registros'    => count($parsed['rows']),
             ]);
 
             $rowModel = new \App\Models\ExcelRow();

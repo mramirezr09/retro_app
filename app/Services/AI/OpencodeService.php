@@ -4,7 +4,7 @@ namespace App\Services\AI;
 
 class OpencodeService implements AiServiceInterface
 {
-    public function generate(string $systemPrompt, string $userMessage, array $config): array
+    public function generate(string $systemPrompt, string $userMessage, array $config, array $attachments = []): array
     {
         $binary = $this->resolveBinary((string) ($config['binary'] ?? 'opencode'));
         if ($binary === null) {
@@ -12,7 +12,7 @@ class OpencodeService implements AiServiceInterface
         }
 
         $model = trim((string) ($config['modelo'] ?? ''));
-        $message = trim($systemPrompt) . "\n\n" . trim($userMessage);
+        $message = trim($systemPrompt) . "\n\n" . trim($userMessage) . $this->attachmentsText($attachments);
 
         $arguments = ['run', $message, '--format', 'json'];
         if ($model !== '') {
@@ -41,6 +41,47 @@ class OpencodeService implements AiServiceInterface
         }
 
         return ['ok' => true, 'text' => $text, 'tokens' => $this->extractTokens($stdout), 'error' => null];
+    }
+
+    private function attachmentsText(array $attachments): string
+    {
+        $images = array_values(array_filter((array) ($attachments['imagenes'] ?? []), 'is_string'));
+        $documents = array_values(array_filter((array) ($attachments['documentos'] ?? []), 'is_string'));
+
+        if (empty($images) && empty($documents)) {
+            return '';
+        }
+
+        $lines = [];
+        if (!empty($images)) {
+            $lines[] = 'Imagenes adjuntas:';
+            foreach ($images as $url) {
+                $lines[] = '- ' . $url;
+            }
+        }
+        if (!empty($documents)) {
+            $lines[] = 'Documentos adjuntos:';
+            $fetcher = new AttachmentFetcher();
+            $extractor = new DocumentTextExtractor();
+            foreach ($documents as $url) {
+                $lines[] = '- ' . $url;
+                $mime = $fetcher->documentMime($url);
+                if ($mime === null || $mime === 'application/pdf') {
+                    continue;
+                }
+                $binary = $fetcher->binary($url, $mime);
+                if ($binary === null) {
+                    continue;
+                }
+                $text = $extractor->extract($binary, $fetcher->filename($url));
+                if (trim($text) !== '') {
+                    $lines[] = '  Contenido del documento "' . $fetcher->filename($url) . '":';
+                    $lines[] = '  ' . str_replace("\n", "\n  ", $text);
+                }
+            }
+        }
+
+        return "\n\n" . implode("\n", $lines);
     }
 
     private function resolveBinary(string $configured): ?string

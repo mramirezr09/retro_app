@@ -19,14 +19,34 @@ CREATE TABLE IF NOT EXISTS prompts (
 );
 
 CREATE TABLE IF NOT EXISTS excel_files (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre_original   TEXT NOT NULL,
-    ruta              TEXT NOT NULL,
-    columnas_json     TEXT NOT NULL DEFAULT '[]',
-    respuesta_columna TEXT NOT NULL DEFAULT '',
-    total_registros   INTEGER NOT NULL DEFAULT 0,
-    deleted_at        TEXT DEFAULT NULL,
-    created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre_original    TEXT NOT NULL,
+    ruta               TEXT NOT NULL,
+    columnas_json      TEXT NOT NULL DEFAULT '[]',
+    respuesta_columna  TEXT NOT NULL DEFAULT '',
+    imagenes_columna   TEXT NOT NULL DEFAULT '',
+    documentos_columna TEXT NOT NULL DEFAULT '',
+    total_registros    INTEGER NOT NULL DEFAULT 0,
+    deleted_at         TEXT DEFAULT NULL,
+    created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS scripts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre      TEXT NOT NULL,
+    descripcion TEXT NOT NULL DEFAULT '',
+    contenido   TEXT NOT NULL,
+    deleted_at  TEXT DEFAULT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_scripts_deleted ON scripts (deleted_at);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    clave      TEXT PRIMARY KEY,
+    valor      TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS excel_rows (

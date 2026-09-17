@@ -4,7 +4,7 @@ namespace App\Services\AI;
 
 class OpenRouterService implements AiServiceInterface
 {
-    public function generate(string $systemPrompt, string $userMessage, array $config): array
+    public function generate(string $systemPrompt, string $userMessage, array $config, array $attachments = []): array
     {
         $apiKey = (string) ($config['api_key'] ?? '');
         if ($apiKey === '') {
@@ -21,7 +21,7 @@ class OpenRouterService implements AiServiceInterface
             'model'    => $model,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userMessage],
+                ['role' => 'user', 'content' => $this->buildUserContent($userMessage, $attachments)],
             ],
         ];
 
@@ -68,6 +68,73 @@ class OpenRouterService implements AiServiceInterface
         $tokens = isset($decoded['usage']['total_tokens']) ? (int) $decoded['usage']['total_tokens'] : null;
 
         return ['ok' => true, 'text' => trim($text), 'tokens' => $tokens, 'error' => null];
+    }
+
+    private function buildUserContent(string $userMessage, array $attachments): array|string
+    {
+        $images = array_values(array_filter((array) ($attachments['imagenes'] ?? []), 'is_string'));
+        $documents = array_values(array_filter((array) ($attachments['documentos'] ?? []), 'is_string'));
+
+        if (empty($images) && empty($documents)) {
+            return $userMessage;
+        }
+
+        $parts = [['type' => 'text', 'text' => $userMessage]];
+        $notes = [];
+        $fetcher = new AttachmentFetcher();
+        $extractor = new DocumentTextExtractor();
+
+        foreach ($images as $url) {
+            $mime = $fetcher->imageMime($url);
+            if ($mime === null) {
+                $notes[] = 'Imagen adjunta: ' . $url;
+                continue;
+            }
+            $file = $fetcher->dataUrl($url, $mime);
+            if (!$file['ok']) {
+                $notes[] = 'Imagen adjunta (no descargada): ' . $url;
+                continue;
+            }
+            $parts[] = ['type' => 'image_url', 'image_url' => ['url' => $file['data_url']]];
+        }
+
+        foreach ($documents as $url) {
+            $mime = $fetcher->documentMime($url);
+            if ($mime === null) {
+                $notes[] = 'Documento adjunto: ' . $url;
+                continue;
+            }
+
+            $filename = $fetcher->filename($url);
+
+            if ($mime === 'application/pdf') {
+                $file = $fetcher->dataUrl($url, $mime);
+                if (!$file['ok']) {
+                    $notes[] = 'Documento adjunto (no descargado): ' . $url;
+                    continue;
+                }
+                $parts[] = ['type' => 'file', 'file' => ['filename' => $file['filename'], 'file_data' => $file['data_url']]];
+                continue;
+            }
+
+            $binary = $fetcher->binary($url, $mime);
+            if ($binary === null) {
+                $notes[] = 'Documento adjunto (no descargado): ' . $url;
+                continue;
+            }
+            $text = $extractor->extract($binary, $filename);
+            if (trim($text) === '') {
+                $notes[] = 'Documento adjunto (sin texto legible): ' . $url;
+                continue;
+            }
+            $parts[] = ['type' => 'text', 'text' => 'Contenido del documento "' . $filename . "\":\n" . $text];
+        }
+
+        if (!empty($notes)) {
+            $parts[] = ['type' => 'text', 'text' => "Enlaces de adjuntos:\n- " . implode("\n- ", $notes)];
+        }
+
+        return count($parts) === 1 ? $userMessage : $parts;
     }
 
     private function appUrl(): string

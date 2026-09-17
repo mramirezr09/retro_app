@@ -28,6 +28,7 @@ $isActive = function (string $prefix) use ($current): string {
             <a class="<?= $isActive('/upload') ?>" href="<?= e(url('/upload')) ?>">Subir Excel</a>
             <a class="<?= $isActive('/files') ?>" href="<?= e(url('/files')) ?>">Archivos</a>
             <a class="<?= $isActive('/prompts') ?>" href="<?= e(url('/prompts')) ?>">Prompts</a>
+            <a class="<?= $isActive('/scripts') ?>" href="<?= e(url('/scripts')) ?>">Scripts</a>
             <a class="<?= $isActive('/settings') ?>" href="<?= e(url('/settings')) ?>">Ajustes</a>
         </nav>
     </div>
@@ -44,5 +45,7 @@ $isActive = function (string $prefix) use ($current): string {
     RetroApp · <?= date('Y') ?>
 </footer>
 <script src="<?= e(asset('js/app.js')) ?>"></script>
+<script src="<?= e(asset('js/scripts.js')) ?>"></script>
+<script src="<?= e(asset('js/settings.js')) ?>"></script>
 </body>
 </html>

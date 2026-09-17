@@ -8,6 +8,7 @@ use App\Models\ExcelRow;
 use App\Models\Prompt;
 use App\Models\Setting;
 use App\Services\AI\AiManager;
+use App\Services\AI\ProcessingOptions;
 use App\Services\Excel\XlsxWriter;
 
 class FileController extends Controller
@@ -42,6 +43,7 @@ class FileController extends Controller
             'rows'     => $rows,
             'prompts'  => (new Prompt())->activeAll(),
             'services' => AiManager::SERVICES,
+            'processing' => ProcessingOptions::load(),
             'settings' => [
                 'openrouter' => (new Setting())->byService('openrouter'),
                 'opencode'   => (new Setting())->byService('opencode'),

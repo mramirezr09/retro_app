@@ -210,8 +210,8 @@ code {
 .form { display: block; }
 .form label { display: block; margin-bottom: 14px; }
 .form label > span, .panel-grid label > span { display: block; font-weight: 600; margin-bottom: 5px; font-size: 13px; }
-.form input[type="text"], .form input[type="password"], .form textarea, .form input[type="file"],
-.panel-grid select, .panel-grid input[type="text"] {
+.form input[type="text"], .form input[type="password"], .form input[type="number"], .form textarea, .form input[type="file"],
+.panel-grid select, .panel-grid input[type="text"], .panel-grid input[type="number"] {
     width: 100%;
     padding: 9px 11px;
     border: 1px solid var(--border);
@@ -268,3 +268,28 @@ code {
 .flash-error { background: #fbe6e6; border-color: #f2c6c6; color: #8f2b2b; }
 
 .trace { background: #1f2733; color: #d6dde8; padding: 14px; border-radius: 8px; overflow: auto; font-size: 12px; }
+
+.script-source { display: none; }
+.code-area {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre;
+    overflow: auto;
+}
+.attachments { display: flex; flex-wrap: wrap; gap: 6px; }
+.attachments a { font-size: 12px; }
+.attach-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+.attach-img { background: #e6f0fb; color: #22508a; }
+.attach-doc { background: #efe7fb; color: #5b3a8a; }
+.cell-provider { min-width: 150px; }
+.provider-line { display: flex; flex-direction: column; gap: 2px; }
+.badge-fallback { background: #fdf3e0; color: var(--warn); }
+
+.test-box { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.test-box .test-message { max-width: 460px; }
+.test-result { font-size: 13px; }
+.test-result .feedback { margin-top: 6px; }
+.test-result.test-ok { color: var(--ok); }
+.test-result.test-error { color: var(--danger); }
+.test-result .error-text { margin-top: 6px; white-space: pre-wrap; }
