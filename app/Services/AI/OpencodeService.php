@@ -107,7 +107,7 @@ class OpencodeService implements AiServiceInterface
 
         $candidate = $configured !== '' ? basename($configured) : 'opencode';
 
-        foreach ($this->whichCandidates($candidate) as $line) {
+        foreach ($this->prioritize($this->whichCandidates($candidate)) as $line) {
             $resolved = $this->normalizeBinary($line);
             if ($resolved !== null) {
                 return $resolved;
@@ -137,6 +137,9 @@ class OpencodeService implements AiServiceInterface
 
         if (PHP_OS_FAMILY === 'Windows') {
             $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+            if (!in_array($extension, ['exe', 'cmd', 'bat'], true)) {
+                return null;
+            }
             if ($extension === 'cmd' || $extension === 'bat') {
                 $native = $this->nativeExecutableFor($path);
                 return $native ?? $path;
@@ -171,6 +174,27 @@ class OpencodeService implements AiServiceInterface
         }
 
         return $this->searchPath($candidate);
+    }
+
+    private function prioritize(array $paths): array
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            return $paths;
+        }
+
+        $weight = static function (string $path): int {
+            $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+            return match ($extension) {
+                'exe' => 0,
+                'cmd' => 1,
+                'bat' => 2,
+                default => 3,
+            };
+        };
+
+        usort($paths, static fn ($a, $b) => $weight($a) <=> $weight($b));
+
+        return $paths;
     }
 
     private function searchPath(string $candidate): array
