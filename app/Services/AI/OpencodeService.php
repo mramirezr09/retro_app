@@ -6,9 +6,10 @@ class OpencodeService implements AiServiceInterface
 {
     public function generate(string $systemPrompt, string $userMessage, array $config, array $attachments = []): array
     {
-        $binary = $this->resolveBinary((string) ($config['binary'] ?? 'opencode'));
+        $configured = (string) ($config['binary'] ?? 'opencode');
+        $binary = $this->resolveBinary($configured);
         if ($binary === null) {
-            return ['ok' => false, 'text' => '', 'tokens' => null, 'error' => 'No se encontro el ejecutable de opencode. Configure la ruta en Ajustes.'];
+            return ['ok' => false, 'text' => '', 'tokens' => null, 'error' => $this->binaryDiagnostic($configured)];
         }
 
         $model = trim((string) ($config['modelo'] ?? ''));
@@ -87,39 +88,162 @@ class OpencodeService implements AiServiceInterface
     private function resolveBinary(string $configured): ?string
     {
         $configured = trim($configured);
-        if ($configured !== '' && is_file($configured)) {
-            return $configured;
-        }
 
-        $candidate = $configured !== '' ? $configured : 'opencode';
-        $probe = PHP_OS_FAMILY === 'Windows' ? 'where.exe' : 'which';
-        $output = @shell_exec($probe . ' ' . escapeshellarg($candidate) . ' 2>&1');
-        if (!is_string($output) || trim($output) === '') {
-            return null;
-        }
+        if ($configured !== '') {
+            $direct = $this->normalizeBinary($configured);
+            if ($direct !== null) {
+                return $direct;
+            }
 
-        $lines = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($output))), fn ($line) => $line !== ''));
-        if (empty($lines)) {
-            return null;
-        }
-
-        if (PHP_OS_FAMILY === 'Windows') {
-            foreach (['.exe', '.cmd', '.bat'] as $extension) {
-                foreach ($lines as $line) {
-                    if (strtolower(substr($line, -strlen($extension))) === $extension) {
-                        if ($extension === '.cmd') {
-                            $native = $this->nativeExecutableFor($line);
-                            if ($native !== null) {
-                                return $native;
-                            }
-                        }
-                        return $line;
+            if (is_dir($configured)) {
+                foreach ($this->binaryNames() as $name) {
+                    $inside = $this->normalizeBinary($configured . DIRECTORY_SEPARATOR . $name);
+                    if ($inside !== null) {
+                        return $inside;
                     }
                 }
             }
         }
 
-        return $lines[0];
+        $candidate = $configured !== '' ? basename($configured) : 'opencode';
+
+        foreach ($this->whichCandidates($candidate) as $line) {
+            $resolved = $this->normalizeBinary($line);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        foreach ($this->knownLocations() as $location) {
+            $resolved = $this->normalizeBinary($location);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeBinary(string $path): ?string
+    {
+        $path = trim($path, " \t\n\r\0\x0B\"'");
+        if ($path === '' || !is_file($path)) {
+            $real = @realpath($path);
+            if ($real === false || !is_file($real)) {
+                return null;
+            }
+            $path = $real;
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+            if ($extension === 'cmd' || $extension === 'bat') {
+                $native = $this->nativeExecutableFor($path);
+                return $native ?? $path;
+            }
+            return $path;
+        }
+
+        if (!is_executable($path)) {
+            return null;
+        }
+
+        $real = @realpath($path);
+        return $real !== false && is_file($real) ? $real : $path;
+    }
+
+    private function binaryNames(): array
+    {
+        return PHP_OS_FAMILY === 'Windows'
+            ? ['opencode.exe', 'opencode.cmd', 'opencode.bat']
+            : ['opencode'];
+    }
+
+    private function whichCandidates(string $candidate): array
+    {
+        $probe = PHP_OS_FAMILY === 'Windows' ? 'where.exe' : 'command -v';
+        $output = @shell_exec($probe . ' ' . escapeshellarg($candidate) . ' 2>&1');
+        if (is_string($output) && trim($output) !== '') {
+            $lines = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($output))), fn ($line) => $line !== ''));
+            if (!empty($lines)) {
+                return $lines;
+            }
+        }
+
+        return $this->searchPath($candidate);
+    }
+
+    private function searchPath(string $candidate): array
+    {
+        $path = (string) (getenv('PATH') ?: '');
+        if ($path === '') {
+            return [];
+        }
+
+        $names = in_array($candidate, $this->binaryNames(), true) ? [$candidate] : $this->binaryNames();
+
+        $found = [];
+        foreach (explode(PATH_SEPARATOR, $path) as $dir) {
+            $dir = trim($dir);
+            if ($dir === '') {
+                continue;
+            }
+            foreach ($names as $name) {
+                $found[] = rtrim($dir, '/\\') . DIRECTORY_SEPARATOR . $name;
+            }
+        }
+
+        return $found;
+    }
+
+    private function knownLocations(): array
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $dirs = array_filter([
+                getenv('APPDATA') ?: null,
+                getenv('LOCALAPPDATA') ?: null,
+                getenv('USERPROFILE') ?: null,
+            ]);
+            $locations = [];
+            foreach ($dirs as $dir) {
+                $locations[] = $dir . '\\opencode\\bin\\opencode.exe';
+            }
+            return $locations;
+        }
+
+        $home = (string) (getenv('HOME') ?: '');
+        $locations = [
+            '/usr/local/bin/opencode',
+            '/usr/bin/opencode',
+            '/opt/opencode/bin/opencode',
+            '/snap/bin/opencode',
+        ];
+        if ($home !== '') {
+            $locations[] = rtrim($home, '/') . '/.opencode/bin/opencode';
+            $locations[] = rtrim($home, '/') . '/.local/bin/opencode';
+        }
+
+        return $locations;
+    }
+
+    private function binaryDiagnostic(string $configured): string
+    {
+        $configured = trim($configured);
+        if ($configured !== '') {
+            if (is_file($configured)) {
+                if (PHP_OS_FAMILY !== 'Windows' && !is_executable($configured)) {
+                    return 'El ejecutable de opencode existe pero no tiene permiso de ejecucion: ' . $configured . '. Ejecute chmod +x o conceda permisos al usuario del servidor web.';
+                }
+                return 'No se pudo usar el ejecutable de opencode en ' . $configured . '. Verifique los permisos del directorio contenedor (el usuario del servidor web debe poder atravesarlo).';
+            }
+
+            $missing = @lstat($configured) === false;
+            if (!$missing && @realpath($configured) === false) {
+                return 'No se pudo acceder a la ruta configurada de opencode (' . $configured . '). El usuario del servidor web no tiene permisos para atravesar el directorio (p. ej. /home/usuario con modo 750).';
+            }
+        }
+
+        return 'No se encontro el ejecutable de opencode. Configure la ruta absoluta en Ajustes (ej.: /usr/local/bin/opencode) asegurando que el usuario del servidor web pueda ejecutarlo.';
     }
 
     private function nativeExecutableFor(string $shim): ?string
@@ -150,19 +274,56 @@ class OpencodeService implements AiServiceInterface
             $env['OPENCODE_API_KEY'] = $apiKey;
         }
 
-        if (PHP_OS_FAMILY === 'Windows' && getenv('SystemRoot') === false) {
-            $env['SystemRoot'] = 'C:\\Windows';
+        if (PHP_OS_FAMILY === 'Windows') {
+            if (getenv('SystemRoot') === false) {
+                $env['SystemRoot'] = 'C:\\Windows';
+            }
+            return $env;
         }
 
+        if (empty($env['PATH'])) {
+            $env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin';
+        }
+
+        $home = $this->runtimeHome();
+        $env['HOME'] = $home;
+        $env['XDG_CONFIG_HOME'] = $home . DIRECTORY_SEPARATOR . 'config';
+        $env['XDG_CACHE_HOME'] = $home . DIRECTORY_SEPARATOR . 'cache';
+        $env['XDG_DATA_HOME'] = $home . DIRECTORY_SEPARATOR . 'data';
+
         return $env;
+    }
+
+    private function runtimeHome(): string
+    {
+        $dir = $this->workDir();
+        foreach (['config', 'cache', 'data'] as $sub) {
+            $path = $dir . DIRECTORY_SEPARATOR . $sub;
+            if (!is_dir($path)) {
+                @mkdir($path, 0775, true);
+            }
+        }
+
+        return $dir;
     }
 
     private function workDir(): string
     {
         $dir = storage_path('opencode');
         if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
+            @mkdir($dir, 0775, true);
         }
+
+        if (!is_dir($dir) || !is_readable($dir)) {
+            $fallback = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'opencode';
+            if (!is_dir($fallback)) {
+                @mkdir($fallback, 0775, true);
+            }
+            if (is_dir($fallback) && is_readable($fallback)) {
+                return $fallback;
+            }
+        }
+
         return $dir;
     }
 
