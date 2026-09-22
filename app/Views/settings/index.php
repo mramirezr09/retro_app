@@ -58,6 +58,7 @@
                     <label>
                         <span>Ruta del binario opencode (opcional)</span>
                         <input type="text" name="<?= e($key) ?>_path" value="<?= e($data['opencode_path'] ?? '') ?>" placeholder="Se autodetecta en PATH">
+                        <small class="muted">Ej.: /usr/local/bin/opencode (Linux) o C:\ruta\opencode.exe (Windows). Debe ser ejecutable por el usuario del servidor web (p. ej. www-data).</small>
                     </label>
                 <?php endif; ?>
             </div>
