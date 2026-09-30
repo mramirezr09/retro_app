@@ -11,7 +11,12 @@
     <div>
         <h1><?= e($file['nombre_original']) ?></h1>
         <p class="muted">
-            <?= count($rows) ?> registros · Columna de respuesta: <strong><?= e($file['respuesta_columna']) ?></strong>
+            <?= count($rows) ?> registros ·
+            <?php if (($file['tipo'] ?? 'excel') === 'zip'): ?>
+                Respuesta: <strong>archivo adjunto</strong>
+            <?php else: ?>
+                Columna de respuesta: <strong><?= e($file['respuesta_columna']) ?></strong>
+            <?php endif; ?>
             <?php if (!empty($file['imagenes_columna'])): ?>
                 · Imagenes: <strong><?= e($file['imagenes_columna']) ?></strong>
             <?php endif; ?>
@@ -124,9 +129,16 @@
                                         <span class="muted">—</span>
                                     <?php else: ?>
                                         <div class="attachments">
-                                            <?php foreach ($links as $link): ?>
+                                            <?php foreach ($links as $linkIndex => $link): ?>
+                                                <?php
+                                                $isLocal = str_starts_with($link, 'local:');
+                                                $path = (string) parse_url($link, PHP_URL_PATH);
+                                                $label = truncate_text((string) basename($path), 30);
+                                                ?>
                                                 <?php if (preg_match('#^https?://#i', $link)): ?>
-                                                    <a href="<?= e($link) ?>" target="_blank" rel="noopener"><?= e(truncate_text((string) basename((string) parse_url($link, PHP_URL_PATH)), 30)) ?></a>
+                                                    <a href="<?= e($link) ?>" target="_blank" rel="noopener"><?= e($label) ?></a>
+                                                <?php elseif ($isLocal): ?>
+                                                    <a href="<?= e(url('/files/' . (int) $file['id'] . '/attachment/' . (int) $row['id'] . '/' . $linkIndex)) ?>" target="_blank" rel="noopener"><?= e($label) ?></a>
                                                 <?php else: ?>
                                                     <span><?= e(truncate_text($link, 30)) ?></span>
                                                 <?php endif; ?>

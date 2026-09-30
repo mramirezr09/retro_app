@@ -72,10 +72,15 @@ class OpenRouterService implements AiServiceInterface
 
     private function buildUserContent(string $userMessage, array $attachments): array|string
     {
-        $images = array_values(array_filter((array) ($attachments['imagenes'] ?? []), 'is_string'));
-        $documents = array_values(array_filter((array) ($attachments['documentos'] ?? []), 'is_string'));
+        $refs = [];
+        foreach (['imagenes', 'documentos'] as $key) {
+            foreach (array_filter((array) ($attachments[$key] ?? []), 'is_string') as $ref) {
+                $refs[$ref] = true;
+            }
+        }
+        $refs = array_keys($refs);
 
-        if (empty($images) && empty($documents)) {
+        if (empty($refs)) {
             return $userMessage;
         }
 
@@ -84,47 +89,44 @@ class OpenRouterService implements AiServiceInterface
         $fetcher = new AttachmentFetcher();
         $extractor = new DocumentTextExtractor();
 
-        foreach ($images as $url) {
-            $mime = $fetcher->imageMime($url);
-            if ($mime === null) {
-                $notes[] = 'Imagen adjunta: ' . $url;
-                continue;
-            }
-            $file = $fetcher->dataUrl($url, $mime);
-            if (!$file['ok']) {
-                $notes[] = 'Imagen adjunta (no descargada): ' . $url;
-                continue;
-            }
-            $parts[] = ['type' => 'image_url', 'image_url' => ['url' => $file['data_url']]];
-        }
-
-        foreach ($documents as $url) {
-            $mime = $fetcher->documentMime($url);
-            if ($mime === null) {
-                $notes[] = 'Documento adjunto: ' . $url;
+        foreach ($refs as $ref) {
+            $imageMime = $fetcher->imageMime($ref);
+            if ($imageMime !== null) {
+                $image = $fetcher->dataUrl($ref, $imageMime);
+                if (!$image['ok']) {
+                    $notes[] = 'Imagen adjunta (no cargada): ' . $ref;
+                    continue;
+                }
+                $parts[] = ['type' => 'image_url', 'image_url' => ['url' => $image['data_url']]];
                 continue;
             }
 
-            $filename = $fetcher->filename($url);
+            $mime = $fetcher->documentMime($ref);
+            if ($mime === null) {
+                $notes[] = 'Adjunto: ' . $ref;
+                continue;
+            }
+
+            $filename = $fetcher->filename($ref);
 
             if ($mime === 'application/pdf') {
-                $file = $fetcher->dataUrl($url, $mime);
+                $file = $fetcher->dataUrl($ref, $mime);
                 if (!$file['ok']) {
-                    $notes[] = 'Documento adjunto (no descargado): ' . $url;
+                    $notes[] = 'Documento adjunto (no cargado): ' . $ref;
                     continue;
                 }
                 $parts[] = ['type' => 'file', 'file' => ['filename' => $file['filename'], 'file_data' => $file['data_url']]];
                 continue;
             }
 
-            $binary = $fetcher->binary($url, $mime);
+            $binary = $fetcher->binary($ref, $mime);
             if ($binary === null) {
-                $notes[] = 'Documento adjunto (no descargado): ' . $url;
+                $notes[] = 'Documento adjunto (no cargado): ' . $ref;
                 continue;
             }
             $text = $extractor->extract($binary, $filename);
             if (trim($text) === '') {
-                $notes[] = 'Documento adjunto (sin texto legible): ' . $url;
+                $notes[] = 'Documento adjunto (sin texto legible): ' . $ref;
                 continue;
             }
             $parts[] = ['type' => 'text', 'text' => 'Contenido del documento "' . $filename . "\":\n" . $text];

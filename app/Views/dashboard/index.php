@@ -4,7 +4,7 @@
         <h1>Panel de control</h1>
         <p class="muted">Procesa respuestas de alumnos y genera retroalimentacion con IA.</p>
     </div>
-    <a class="btn btn-primary" href="<?= e(url('/upload')) ?>">Subir Excel</a>
+    <a class="btn btn-primary" href="<?= e(url('/upload')) ?>">Cargar archivos</a>
 </section>
 
 <section class="stats">

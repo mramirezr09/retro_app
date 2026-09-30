@@ -54,7 +54,7 @@ retro_app/
 |---|---|
 | `settings` | Configuración por servicio de IA (modelo, base_url, ruta opencode, nombre de la variable de la key) |
 | `prompts` | Prompts del usuario (nombre, materia, contenido) con **borrado lógico** (`deleted_at`) |
-| `excel_files` | Archivos Excel guardados (columnas conservadas, columna de respuesta) |
+| `excel_files` | Archivos cargados (Excel o ZIP) con sus columnas conservadas, columna de respuesta y tipo |
 | `excel_rows` | Registros de cada archivo (datos, retroalimentación, estado, tokens, error) |
 
 Inicializar / migrar:
@@ -102,7 +102,7 @@ php -S localhost:8000 -t public public/router.php
 ## Flujo de uso
 
 1. **Prompts** → crear/editar un prompt y su materia.
-2. **Subir Excel** → elegir archivo `.xlsx`/`.csv`, previsualizar, marcar las **columnas a conservar** y elegir la **columna con la respuesta del alumno**.
+2. **Cargar archivos** → elegir un Excel (`.xlsx`/`.csv`) o un ZIP con una carpeta por alumno (PDF, Word o imagen), previsualizar, marcar las **columnas a conservar** y elegir la **columna con la respuesta del alumno**. En los ZIP, los archivos de cada carpeta se envían como adjuntos.
 3. **Archivos** → ver los registros del archivo, seleccionar uno o varios.
 4. Elegir **prompt**, **servicio** (`OpenRouter` u `opencode`) y opcionalmente el **modelo**, y pulsar **Enviar seleccionados**.
 5. La **retroalimentación** aparece en la misma tabla; el estado cambia a `enviado` (o `error`).
@@ -111,6 +111,7 @@ php -S localhost:8000 -t public public/router.php
 ### Cómo se arma la petición a la IA
 - **OpenRouter**: `system` = prompt del usuario; `user` = respuesta del alumno.
 - **opencode**: se concatena `prompt + "\n\n" + respuesta del alumno` y se envía al CLI.
+- Los adjuntos (imágenes o documentos del Excel, y archivos extraídos de un ZIP) se resuelven desde referencias `https://...` o `local:uploads/...`.
 
 ---
 

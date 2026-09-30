@@ -24,6 +24,7 @@ $router->post('/upload/save', 'UploadController@save');
 
 $router->get('/files', 'FileController@index');
 $router->get('/files/{id}', 'FileController@show');
+$router->get('/files/{id}/attachment/{rowId}/{index}', 'FileController@attachment');
 $router->post('/files/{id}/delete', 'FileController@destroy');
 $router->get('/files/{id}/export', 'FileController@export');
 

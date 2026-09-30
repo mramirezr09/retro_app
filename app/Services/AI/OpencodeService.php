@@ -54,18 +54,18 @@ class OpencodeService implements AiServiceInterface
         }
 
         $lines = [];
+        $fetcher = new AttachmentFetcher();
         if (!empty($images)) {
             $lines[] = 'Imagenes adjuntas:';
             foreach ($images as $url) {
-                $lines[] = '- ' . $url;
+                $lines[] = '- ' . $this->resolveRef($fetcher, $url);
             }
         }
         if (!empty($documents)) {
             $lines[] = 'Documentos adjuntos:';
-            $fetcher = new AttachmentFetcher();
             $extractor = new DocumentTextExtractor();
             foreach ($documents as $url) {
-                $lines[] = '- ' . $url;
+                $lines[] = '- ' . $this->resolveRef($fetcher, $url);
                 $mime = $fetcher->documentMime($url);
                 if ($mime === null || $mime === 'application/pdf') {
                     continue;
@@ -83,6 +83,15 @@ class OpencodeService implements AiServiceInterface
         }
 
         return "\n\n" . implode("\n", $lines);
+    }
+
+    private function resolveRef(AttachmentFetcher $fetcher, string $ref): string
+    {
+        if (!$fetcher->isLocal($ref)) {
+            return $ref;
+        }
+
+        return $fetcher->localPath($ref) ?? $ref;
     }
 
     private function resolveBinary(string $configured): ?string

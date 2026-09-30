@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS prompts (
 CREATE TABLE IF NOT EXISTS excel_files (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre_original    TEXT NOT NULL,
+    tipo               TEXT NOT NULL DEFAULT 'excel',
     ruta               TEXT NOT NULL,
     columnas_json      TEXT NOT NULL DEFAULT '[]',
     respuesta_columna  TEXT NOT NULL DEFAULT '',

@@ -4,6 +4,13 @@
 /** @var array $headers */
 /** @var array $rows */
 /** @var int $totalRows */
+$tipo = $tipo ?? 'excel';
+$esZip = $tipo === 'zip';
+$respuestaDefault = $defaultRespuesta ?? '';
+if ($respuestaDefault === '') {
+    $respuestaDefault = $headers === [] ? '' : $headers[count($headers) - 1];
+}
+$documentosDefault = $defaultDocumentos ?? '';
 ?>
 <section class="page-head">
     <div>
@@ -11,6 +18,9 @@
         <p class="muted">
             <?= e($nombreOriginal) ?> · <?= (int) $totalRows ?> filas · <?= count($headers) ?> columnas detectadas.
             Se muestran las primeras <?= count($rows) ?> filas.
+            <?php if ($esZip): ?>
+                Cada fila corresponde a la carpeta de un alumno y sus archivos adjuntos.
+            <?php endif; ?>
         </p>
     </div>
     <a class="btn" href="<?= e(url('/upload')) ?>">Cancelar</a>
@@ -20,6 +30,7 @@
     <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
     <input type="hidden" name="archivo" value="<?= e($stored) ?>">
     <input type="hidden" name="nombre_original" value="<?= e($nombreOriginal) ?>">
+    <input type="hidden" name="tipo" value="<?= e($tipo) ?>">
 
     <section class="card">
         <h2>1. Columnas a conservar</h2>
@@ -37,10 +48,13 @@
     <section class="card">
         <h2>2. Columna con la respuesta del alumno</h2>
         <p class="muted">Este texto se enviara como mensaje del usuario (rol user).</p>
+        <?php if ($esZip): ?>
+            <p class="muted">En los ZIP no hay texto de respuesta: se usa <strong><?= e(\App\Services\Imports\ZipImporter::COLUMNA_ALUMNO) ?></strong> como identificador y la respuesta es el archivo adjunto.</p>
+        <?php endif; ?>
         <div class="chip-grid">
-            <?php foreach ($headers as $index => $header): ?>
+            <?php foreach ($headers as $header): ?>
                 <label class="chip chip-radio">
-                    <input type="radio" name="respuesta_columna" value="<?= e($header) ?>" <?= $index === count($headers) - 1 ? 'checked' : '' ?> required>
+                    <input type="radio" name="respuesta_columna" value="<?= e($header) ?>" <?= $header === $respuestaDefault ? 'checked' : '' ?> required>
                     <span><?= e($header) ?></span>
                 </label>
             <?php endforeach; ?>
@@ -67,14 +81,17 @@
     <section class="card">
         <h2>4. Columna con documentos (opcional)</h2>
         <p class="muted">Columna que contiene enlaces directos a documentos (PDF, etc.), separados por <code>|</code>.</p>
+        <?php if ($esZip): ?>
+            <p class="muted">En los ZIP la columna <strong><?= e(\App\Services\Imports\ZipImporter::COLUMNA_ARCHIVO) ?></strong> se usa siempre como adjuntos (imagenes o documentos), sin importar lo que elijas aqui.</p>
+        <?php endif; ?>
         <div class="chip-grid">
             <label class="chip chip-radio">
-                <input type="radio" name="documentos_columna" value="" checked>
+                <input type="radio" name="documentos_columna" value="" <?= $documentosDefault === '' ? 'checked' : '' ?>>
                 <span>Ninguna</span>
             </label>
             <?php foreach ($headers as $header): ?>
                 <label class="chip chip-radio">
-                    <input type="radio" name="documentos_columna" value="<?= e($header) ?>">
+                    <input type="radio" name="documentos_columna" value="<?= e($header) ?>" <?= $documentosDefault === $header ? 'checked' : '' ?>>
                     <span><?= e($header) ?></span>
                 </label>
             <?php endforeach; ?>

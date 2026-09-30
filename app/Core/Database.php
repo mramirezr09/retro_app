@@ -43,6 +43,7 @@ class Database
         }
         self::connection()->exec((string) file_get_contents($schema));
 
+        self::ensureColumn('excel_files', 'tipo', "TEXT NOT NULL DEFAULT 'excel'");
         self::ensureColumn('excel_files', 'imagenes_columna', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn('excel_files', 'documentos_columna', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn('excel_rows', 'intentos', 'INTEGER DEFAULT NULL');

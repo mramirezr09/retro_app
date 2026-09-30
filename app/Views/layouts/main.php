@@ -25,7 +25,7 @@ $isActive = function (string $prefix) use ($current): string {
         <a class="brand" href="<?= e(url('/')) ?>">Retro<span>App</span></a>
         <nav class="nav">
             <a class="<?= $isActive('/') ?>" href="<?= e(url('/')) ?>">Inicio</a>
-            <a class="<?= $isActive('/upload') ?>" href="<?= e(url('/upload')) ?>">Subir Excel</a>
+            <a class="<?= $isActive('/upload') ?>" href="<?= e(url('/upload')) ?>">Cargar archivos</a>
             <a class="<?= $isActive('/files') ?>" href="<?= e(url('/files')) ?>">Archivos</a>
             <a class="<?= $isActive('/prompts') ?>" href="<?= e(url('/prompts')) ?>">Prompts</a>
             <a class="<?= $isActive('/scripts') ?>" href="<?= e(url('/scripts')) ?>">Scripts</a>

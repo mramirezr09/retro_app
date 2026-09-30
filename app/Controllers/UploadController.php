@@ -6,6 +6,7 @@ use App\Core\Config;
 use App\Core\Controller;
 use App\Core\Database;
 use App\Services\Excel\ExcelReader;
+use App\Services\Imports\ZipImporter;
 
 class UploadController extends Controller
 {
@@ -14,7 +15,7 @@ class UploadController extends Controller
     public function index(): void
     {
         $this->render('upload/index', [
-            'title'      => 'Subir Excel',
+            'title'      => 'Cargar archivos',
             'maxBytes'   => (int) Config::get('upload.max_bytes'),
             'extensions' => (array) Config::get('upload.extensions'),
         ]);
@@ -45,8 +46,12 @@ class UploadController extends Controller
         $stored = $this->storeUploadedFile($file, $extension);
         $absolute = Config::get('paths.uploads') . DIRECTORY_SEPARATOR . $stored;
 
+        $tipo = $this->isArchive($extension) ? 'zip' : 'excel';
+
         try {
-            $parsed = (new ExcelReader())->read($absolute);
+            $parsed = $tipo === 'zip'
+                ? (new ZipImporter())->inspect($absolute)
+                : (new ExcelReader())->read($absolute);
         } catch (\Throwable $e) {
             @unlink($absolute);
             $this->flash('error', 'No se pudo leer el archivo: ' . $e->getMessage());
@@ -60,12 +65,15 @@ class UploadController extends Controller
         }
 
         $this->render('upload/preview', [
-            'title'          => 'Vista previa',
-            'nombreOriginal' => (string) $file['name'],
-            'stored'         => $stored,
-            'headers'        => $parsed['headers'],
-            'rows'           => array_slice($parsed['rows'], 0, self::SAMPLE_LIMIT),
-            'totalRows'      => count($parsed['rows']),
+            'title'            => 'Vista previa',
+            'tipo'             => $tipo,
+            'nombreOriginal'   => (string) $file['name'],
+            'stored'           => $stored,
+            'headers'          => $parsed['headers'],
+            'rows'             => array_slice($parsed['rows'], 0, self::SAMPLE_LIMIT),
+            'totalRows'        => count($parsed['rows']),
+            'defaultRespuesta' => $tipo === 'zip' ? ZipImporter::COLUMNA_ALUMNO : '',
+            'defaultDocumentos' => $tipo === 'zip' ? ZipImporter::COLUMNA_ARCHIVO : '',
         ]);
     }
 
@@ -75,6 +83,10 @@ class UploadController extends Controller
 
         $stored = (string) $this->request->string('archivo');
         $nombreOriginal = (string) $this->request->string('nombre_original', 'archivo');
+        $tipo = (string) $this->request->string('tipo', 'excel');
+        if (!in_array($tipo, ['excel', 'zip'], true)) {
+            $tipo = 'excel';
+        }
         $selected = $this->request->arrayInput('columnas');
         $respuestaColumna = (string) $this->request->string('respuesta_columna');
         $imagenesColumna = (string) $this->request->string('imagenes_columna');
@@ -91,7 +103,9 @@ class UploadController extends Controller
             $this->redirect(url('/upload'));
         }
 
-        $parsed = (new ExcelReader())->read($absolute);
+        $parsed = $tipo === 'zip'
+            ? (new ZipImporter())->read($absolute)
+            : (new ExcelReader())->read($absolute);
         $headers = $parsed['headers'];
 
         $selected = array_values(array_intersect($headers, array_map('strval', $selected)));
@@ -101,8 +115,20 @@ class UploadController extends Controller
         }
 
         if ($respuestaColumna === '' || !in_array($respuestaColumna, $headers, true)) {
-            $this->flash('error', 'Debe elegir la columna que contiene la respuesta del alumno.');
-            $this->redirect(url('/upload'));
+            if ($tipo === 'zip') {
+                $respuestaColumna = ZipImporter::COLUMNA_ALUMNO;
+            } else {
+                $this->flash('error', 'Debe elegir la columna que contiene la respuesta del alumno.');
+                $this->redirect(url('/upload'));
+            }
+        }
+
+        if ($tipo === 'zip' && in_array(ZipImporter::COLUMNA_ARCHIVO, $headers, true)) {
+            $documentosColumna = ZipImporter::COLUMNA_ARCHIVO;
+            $imagenesColumna = '';
+            if ($respuestaColumna === ZipImporter::COLUMNA_ARCHIVO) {
+                $respuestaColumna = ZipImporter::COLUMNA_ALUMNO;
+            }
         }
 
         if ($imagenesColumna !== '' && !in_array($imagenesColumna, $headers, true)) {
@@ -126,6 +152,7 @@ class UploadController extends Controller
         try {
             $fileId = (new \App\Models\ExcelFile())->create([
                 'nombre_original'    => $nombreOriginal,
+                'tipo'               => $tipo,
                 'ruta'               => 'uploads/' . $stored,
                 'columnas_json'      => json_encode($selected, JSON_UNESCAPED_UNICODE),
                 'respuesta_columna'  => $respuestaColumna,
@@ -145,7 +172,7 @@ class UploadController extends Controller
                     'excel_file_id'   => $fileId,
                     'numero_fila'     => $numero,
                     'datos_json'      => json_encode($filtered, JSON_UNESCAPED_UNICODE),
-                    'respuesta_texto' => (string) ($row[$respuestaColumna] ?? ''),
+                    'respuesta_texto' => $tipo === 'zip' ? '' : (string) ($row[$respuestaColumna] ?? ''),
                     'estado'          => 'pendiente',
                 ]);
                 $numero++;
@@ -160,6 +187,11 @@ class UploadController extends Controller
 
         $this->flash('success', 'Archivo guardado con ' . count($parsed['rows']) . ' registros.');
         $this->redirect(url('/files/' . $fileId));
+    }
+
+    private function isArchive(string $extension): bool
+    {
+        return in_array($extension, (array) Config::get('upload.archive_extensions', ['zip']), true);
     }
 
     private function storeUploadedFile(array $file, string $extension): string

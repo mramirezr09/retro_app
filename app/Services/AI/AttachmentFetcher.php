@@ -4,8 +4,9 @@ namespace App\Services\AI;
 
 class AttachmentFetcher
 {
-    private const MAX_BYTES = 20 * 1024 * 1024;
+    private const MAX_BYTES = 50 * 1024 * 1024;
     private const TIMEOUT = 90;
+    private const LOCAL_PREFIX = 'local:';
 
     private const IMAGE_TYPES = [
         'jpg'  => 'image/jpeg',
@@ -66,6 +67,38 @@ class AttachmentFetcher
         return $name !== '' ? rawurldecode($name) : 'archivo';
     }
 
+    public function isLocal(string $url): bool
+    {
+        return str_starts_with($url, self::LOCAL_PREFIX);
+    }
+
+    public function localPath(string $url): ?string
+    {
+        if (!$this->isLocal($url)) {
+            return null;
+        }
+
+        $relative = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, substr($url, strlen(self::LOCAL_PREFIX)));
+        $relative = ltrim($relative, DIRECTORY_SEPARATOR);
+        if ($relative === '' || str_contains($relative, '..')) {
+            return null;
+        }
+
+        $root = storage_path();
+        $path = $root . DIRECTORY_SEPARATOR . $relative;
+        $real = @realpath($path);
+        $realRoot = @realpath($root);
+        if ($real === false || $realRoot === false || !is_file($real)) {
+            return null;
+        }
+
+        if ($real !== $realRoot && !str_starts_with($real, $realRoot . DIRECTORY_SEPARATOR)) {
+            return null;
+        }
+
+        return $real;
+    }
+
     /**
      * @return array{ok: bool, data_url: ?string, mime: ?string, filename: string, error: ?string}
      */
@@ -82,6 +115,19 @@ class AttachmentFetcher
 
     public function binary(string $url, string $mime): ?string
     {
+        if ($this->isLocal($url)) {
+            $path = $this->localPath($url);
+            if ($path === null) {
+                return null;
+            }
+            $size = @filesize($path);
+            if ($size !== false && $size > self::MAX_BYTES) {
+                return null;
+            }
+            $contents = @file_get_contents($path);
+            return $contents === false ? null : $contents;
+        }
+
         $cached = $this->cacheLookup($url, $mime);
         if ($cached !== null) {
             return $cached;

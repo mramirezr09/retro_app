@@ -16,7 +16,12 @@ return [
         'env'      => dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env',
     ],
     'upload' => [
-        'max_bytes'  => 20 * 1024 * 1024,
-        'extensions' => ['xlsx', 'csv'],
+        'max_bytes'  => 100 * 1024 * 1024,
+        'extensions' => ['xlsx', 'csv', 'zip'],
+        'archive_extensions' => ['zip'],
+        'attachment_extensions' => [
+            'pdf', 'doc', 'docx', 'odt', 'rtf', 'txt',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg',
+        ],
     ],
 ];

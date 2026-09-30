@@ -1,10 +1,10 @@
 <?php /** @var array $files */ ?>
 <section class="page-head">
     <div>
-        <h1>Archivos Excel</h1>
+        <h1>Archivos</h1>
         <p class="muted">Archivos guardados y sus registros internos.</p>
     </div>
-    <a class="btn btn-primary" href="<?= e(url('/upload')) ?>">Subir Excel</a>
+    <a class="btn btn-primary" href="<?= e(url('/upload')) ?>">Cargar archivos</a>
 </section>
 
 <section class="card">
@@ -29,7 +29,12 @@
                     <?php $cols = json_decode((string) $file['columnas_json'], true) ?: []; ?>
                     <tr>
                         <td><?= (int) $file['id'] ?></td>
-                        <td><?= e($file['nombre_original']) ?></td>
+                        <td>
+                            <?= e($file['nombre_original']) ?>
+                            <?php if (($file['tipo'] ?? 'excel') === 'zip'): ?>
+                                <span class="attach-tag">ZIP</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="muted"><?= e(truncate_text(implode(', ', $cols), 50)) ?></td>
                         <td><?= e($file['respuesta_columna']) ?></td>
                         <td><span class="badge"><?= (int) $file['total_filas'] ?></span></td>

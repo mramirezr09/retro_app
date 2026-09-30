@@ -3,11 +3,13 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Core\Response;
 use App\Models\ExcelFile;
 use App\Models\ExcelRow;
 use App\Models\Prompt;
 use App\Models\Setting;
 use App\Services\AI\AiManager;
+use App\Services\AI\AttachmentFetcher;
 use App\Services\AI\ProcessingOptions;
 use App\Services\Excel\XlsxWriter;
 
@@ -49,6 +51,64 @@ class FileController extends Controller
                 'opencode'   => (new Setting())->byService('opencode'),
             ],
         ]);
+    }
+
+    public function attachment(string $id, string $rowId, string $index): void
+    {
+        $fileModel = new ExcelFile();
+        $file = $fileModel->findActive((int) $id);
+        if (!$file) {
+            Response::abort(404, 'Archivo no encontrado.');
+        }
+
+        $rowModel = new ExcelRow();
+        $row = $rowModel->findInFile((int) $rowId, (int) $file['id']);
+        if (!$row) {
+            Response::abort(404, 'Registro no encontrado.');
+        }
+
+        $data = $rowModel->data($row);
+        $refs = [];
+        foreach ([$file['imagenes_columna'] ?? '', $file['documentos_columna'] ?? ''] as $column) {
+            $column = (string) $column;
+            if ($column === '') {
+                continue;
+            }
+            foreach (preg_split('/[|\n\r]+/', (string) ($data[$column] ?? '')) as $candidate) {
+                $candidate = trim((string) $candidate);
+                if ($candidate !== '') {
+                    $refs[$candidate] = true;
+                }
+            }
+        }
+        $refs = array_keys($refs);
+
+        $target = $refs[(int) $index] ?? null;
+        if ($target === null) {
+            Response::abort(404, 'Adjunto no encontrado.');
+        }
+
+        $fetcher = new AttachmentFetcher();
+        if (!$fetcher->isLocal($target)) {
+            header('Location: ' . $target, true, 302);
+            exit;
+        }
+
+        $path = $fetcher->localPath($target);
+        if ($path === null) {
+            Response::abort(404, 'El archivo adjunto no esta disponible.');
+        }
+
+        $mime = function_exists('mime_content_type') ? (string) mime_content_type($path) : 'application/octet-stream';
+        if ($mime === '') {
+            $mime = 'application/octet-stream';
+        }
+
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: inline; filename="' . rawurlencode($fetcher->filename($target)) . '"');
+        header('Content-Length: ' . (string) filesize($path));
+        readfile($path);
+        exit;
     }
 
     public function destroy(string $id): void

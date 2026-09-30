@@ -92,19 +92,28 @@ class RecordController extends Controller
             }
 
             $answer = (string) $row['respuesta_texto'];
-            if (trim($answer) === '') {
-                $rowModel->markError($rowId, 'El registro no tiene texto de respuesta.', 0);
-                $results[] = ['id' => $rowId, 'ok' => false, 'error' => 'Sin texto de respuesta', 'estado' => 'error'];
-                continue;
-            }
-
-            $rowModel->markSending($rowId, $promptId, $service, (string) $primaryConfig['modelo']);
-
             $data = $rowModel->data($row);
             $attachments = [
                 'imagenes'   => $this->parseUrls((string) ($data[$imagenesColumna] ?? '')),
                 'documentos' => $this->parseUrls((string) ($data[$documentosColumna] ?? '')),
             ];
+
+            if (($file['tipo'] ?? 'excel') === 'zip'
+                && empty($attachments['imagenes'])
+                && empty($attachments['documentos'])) {
+                foreach ($data as $value) {
+                    $attachments['documentos'] = array_merge($attachments['documentos'], $this->parseUrls((string) $value));
+                }
+                $attachments['documentos'] = array_values(array_unique($attachments['documentos']));
+            }
+
+            if (trim($answer) === '' && empty($attachments['imagenes']) && empty($attachments['documentos'])) {
+                $rowModel->markError($rowId, 'El registro no tiene texto de respuesta ni adjuntos.', 0);
+                $results[] = ['id' => $rowId, 'ok' => false, 'error' => 'Sin texto ni adjuntos', 'estado' => 'error'];
+                continue;
+            }
+
+            $rowModel->markSending($rowId, $promptId, $service, (string) $primaryConfig['modelo']);
 
             $winner = null;
             $attemptLog = [];
@@ -211,16 +220,18 @@ class RecordController extends Controller
             return [];
         }
 
-        $urls = [];
+        $refs = [];
         foreach (preg_split('/[|\n\r]+/', $value) as $candidate) {
             $candidate = trim((string) $candidate);
-            if ($candidate === '' || !preg_match('#^https?://#i', $candidate)) {
+            if ($candidate === '') {
                 continue;
             }
-            $urls[$candidate] = true;
+            if (preg_match('#^https?://#i', $candidate) || str_starts_with($candidate, 'local:')) {
+                $refs[$candidate] = true;
+            }
         }
 
-        return array_keys($urls);
+        return array_keys($refs);
     }
 
     public function reset(): void
